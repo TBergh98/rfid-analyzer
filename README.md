@@ -31,7 +31,7 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 - Installa le librerie richieste con:
 
   ```
-  pip install -r requirements.txt
+  py -m pip install -r requirements.txt
   ```
 
 ### 3. Configura le cartelle di input e output
@@ -72,8 +72,6 @@ Hai due possibilità:
   python src/main.py
   ```
 
-  (Se il file principale ha un altro nome, sostituiscilo a `main.py`.)
-
 ### 6. Guarda i risultati
 
 - I risultati e i grafici verranno salvati nella cartella che hai indicato come `output_folder` nel file di configurazione.
@@ -82,9 +80,6 @@ Hai due possibilità:
 ---
 
 ## Domande frequenti
-
-**Non funziona il comando `pip`!**  
-In Windows prova a scrivere `py -m pip install -r requirements.txt`.
 
 **Non trovo Python!**  
 Assicurati di averlo installato e di aver selezionato "Aggiungi Python al PATH" durante l’installazione.
