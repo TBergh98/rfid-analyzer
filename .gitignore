@@ -1,0 +1,22 @@
+# File temporanei e di sistema
+*.tmp
+*.log
+*.bak
+*.swp
+*.DS_Store
+Thumbs.db
+
+# File Python
+__pycache__/
+*.pyc
+*.pyo
+
+# File di ambiente virtuale Python
+.env/
+.venv/
+venv/
+ENV/
+
+# File di configurazione IDE
+.vscode/
+.idea/
