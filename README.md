@@ -1,4 +1,4 @@
-# Chicken Nesting Analyzer
+# RFID Analyzer
 
 Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. Permette di generare grafici e statistiche utili per la ricerca.
 
