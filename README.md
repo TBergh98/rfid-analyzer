@@ -10,33 +10,34 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 - **Un programma per il terminale**  
   (su Windows: "Prompt dei comandi" o "PowerShell")
 
-- **Git** (opzionale, solo se vuoi scaricare la repo tramite comando)  
-  Scaricalo da [git-scm.com](https://git-scm.com/) se non lo hai già.
+- **Git** (consigliato per scaricare la repo)  
+  Scarica Git da [git-scm.com](https://git-scm.com/), scegli la versione per Windows e segui la procedura guidata di installazione.  
+  Dopo l’installazione puoi usare il comando `git` dal terminale.
 
 ## Come si usa
 
 ### 1. Scarica il progetto
 
-Hai due possibilità:
+**Metodo consigliato: Clona con Git**
 
-- **Metodo 1: Download ZIP**  
-  - Clicca sul pulsante verde "Code" su GitHub e scegli "Download ZIP".
-  - Estrai la cartella sul tuo computer.
+- Apri il terminale.
+- Vai nella cartella dove vuoi scaricare il progetto.
+- Esegui il comando (sostituisci l'URL con quello della repo se diverso):
 
-- **Metodo 2: Clona con Git**  
-  - Apri il terminale.
-  - Vai nella cartella dove vuoi scaricare il progetto.
-  - Esegui il comando (sostituisci l'URL con quello della repo se diverso):
+  ```
+  git clone https://github.com/tuo-utente/RFID-GALLINE-ANGELA.git
+  ```
 
-    ```
-    git clone https://github.com/tuo-utente/RFID-GALLINE-ANGELA.git
-    ```
+- Entra nella cartella del progetto:
 
-  - Entra nella cartella del progetto:
+  ```
+  cd RFID-GALLINE-ANGELA
+  ```
 
-    ```
-    cd RFID-GALLINE-ANGELA
-    ```
+**Metodo alternativo: Download ZIP**
+
+- Clicca sul pulsante verde "Code" su GitHub e scegli "Download ZIP".
+- Estrai la cartella sul tuo computer.
 
 ### 2. Installa le librerie necessarie
 
@@ -104,3 +105,6 @@ Hai due possibilità:
 
 **Non trovo Python!**  
 Assicurati di averlo installato e di aver selezionato "Aggiungi Python al PATH" durante l’installazione.
+
+**Non ho Git! Come lo installo?**  
+Vai su [git-scm.com](https://git-scm.com/), scarica la versione per Windows e segui le istruzioni. Dopo l’installazione puoi usare il comando `git`
