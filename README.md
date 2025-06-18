@@ -2,6 +2,24 @@
 
 Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. Permette di generare grafici e statistiche utili per la ricerca.
 
+## Descrizione sintetica
+
+- **Cleaning dei dati:**  
+  Il software pulisce i dati RFID eliminando righe corrotte o incomplete e unisce eventi di uscita/entrata molto brevi (inferiori a una soglia configurabile) per ridurre gli artefatti. In particolare, se una gallina esce e rientra nello stesso nido in pochi secondi, questi eventi vengono considerati come un'unica presenza.
+
+- **Plot generati:**  
+  Dopo la pulizia, il programma produce:
+  - Un bar plot delle preferenze dei nidi (numero di ingressi per nido)
+  - Una cluster map interattiva che mostra la frequenza di utilizzo dei nidi da parte delle diverse galline
+  - Grafici temporali dei flussi IN/OUT per ogni nido, suddivisi in slot temporali e finestre di giorni
+
+- **Configurazione tramite YAML:**  
+  Il file `config/settings.yaml` permette di:
+  - Scegliere la cartella di input dei dati grezzi e quella di output dei risultati
+  - Impostare la soglia (in secondi) per il filtro degli artefatti (eventi troppo brevi vengono ignorati)
+  - Definire il formato della data/ora dei file CSV
+  - Scegliere la durata degli slot temporali per i plot e la dimensione della finestra di giorni per i grafici temporali
+
 ## Requisiti
 
 - **Python 3.8 o superiore**  
@@ -58,25 +76,20 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 
 ### 3. Configura le cartelle di input e output
 
-- Apri il file `config/setting.yaml` con un editor di testo (ad esempio Blocco Note).
+- Apri il file `config/settings.yaml` con un editor di testo.
 - All'interno di questo file puoi specificare:
-  - La cartella dove si trovano i file CSV con i dati RFID (input)
-  - La cartella dove vuoi che vengano salvati i risultati e i grafici (output)
-  - Altri parametri di configurazione necessari
+  - La cartella dove si trovano i file CSV con i dati RFID (`raw_input_folder`)
+  - La cartella dove vuoi che vengano salvati i risultati e i grafici (`cleaned_ouput_folder`)
+  - La soglia per il filtro degli artefatti (`artefact_threshold_seconds`)
+  - Il formato della data/ora (`datetime_format`)
+  - La durata degli slot temporali per i plot (`time_slot_minutes`)
+  - Il numero di giorni per ogni plot temporale (`plot_day_window`)
 
-  Esempio di come potrebbe apparire il file:
-
-  ```yaml
-  input_folder: C:\Users\bergamascot\Documents\Progetti\RFID-GALLINE-ANGELA\Dati grezzi Rfid
-  output_folder: C:\Users\bergamascot\Documents\Progetti\RFID-GALLINE-ANGELA\Output
-  # altri parametri...
-  ```
-
-  Assicurati che i percorsi delle cartelle siano corretti e che esistano sul tuo computer.
+  Questi parametri influenzano direttamente la pulizia dei dati e la generazione dei grafici.
 
 ### 4. Inserisci i dati
 
-- Metti i file CSV con i dati RFID nella cartella che hai indicato come `input_folder` nel file di configurazione.
+- Metti i file CSV con i dati RFID nella cartella che hai indicato come `raw_input_folder` nel file di configurazione.
 
 ### 5. Avvia l’analisi
 
@@ -96,7 +109,7 @@ Hai due possibilità:
 
 ### 6. Guarda i risultati
 
-- I risultati e i grafici verranno salvati nella cartella che hai indicato come `output_folder` nel file di configurazione.
+- I risultati e i grafici verranno salvati nella cartella che hai indicato come `cleaned_ouput_folder` nel file di configurazione.
 - Apri i file HTML con un doppio clic per vedere i grafici nel browser.
 
 ---
