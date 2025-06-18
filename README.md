@@ -10,12 +10,33 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 - **Un programma per il terminale**  
   (su Windows: "Prompt dei comandi" o "PowerShell")
 
+- **Git** (opzionale, solo se vuoi scaricare la repo tramite comando)  
+  Scaricalo da [git-scm.com](https://git-scm.com/) se non lo hai già.
+
 ## Come si usa
 
 ### 1. Scarica il progetto
 
-- Clicca sul pulsante verde "Code" su GitHub e scegli "Download ZIP".
-- Estrai la cartella sul tuo computer.
+Hai due possibilità:
+
+- **Metodo 1: Download ZIP**  
+  - Clicca sul pulsante verde "Code" su GitHub e scegli "Download ZIP".
+  - Estrai la cartella sul tuo computer.
+
+- **Metodo 2: Clona con Git**  
+  - Apri il terminale.
+  - Vai nella cartella dove vuoi scaricare il progetto.
+  - Esegui il comando (sostituisci l'URL con quello della repo se diverso):
+
+    ```
+    git clone https://github.com/tuo-utente/RFID-GALLINE-ANGELA.git
+    ```
+
+  - Entra nella cartella del progetto:
+
+    ```
+    cd RFID-GALLINE-ANGELA
+    ```
 
 ### 2. Installa le librerie necessarie
 
@@ -26,7 +47,7 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
   cd percorso/della/cartella/RFID-GALLINE-ANGELA
   ```
 
-  (Sostituisci `percorso/della/cartella` con il percorso dove hai estratto il progetto.)
+  (Sostituisci `percorso/della/cartella` con il percorso dove hai estratto o clonato il progetto.)
 
 - Installa le librerie richieste con:
 
