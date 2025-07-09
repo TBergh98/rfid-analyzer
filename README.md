@@ -16,7 +16,7 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 - **Configurazione tramite YAML:**  
   Il file `config/settings.yaml` permette di:
   - Scegliere la cartella di input dei dati grezzi e quella di output dei risultati
-  - Impostare la soglia (in secondi) per il filtro degli artefatti (eventi troppo brevi vengono ignorati)
+  - Definire **due soglie** (in secondi) per il filtro degli artefatti: `pre_egg_laying_threshold_seconds` (prima di `egg_laying_start_day`) e `post_egg_laying_threshold_seconds` (dopo). Queste soglie permettono di unire eventi di uscita/entrata molto brevi, con valori diversi a seconda del periodo.
   - Definire il formato della data/ora dei file CSV
   - Scegliere la durata degli slot temporali per i plot e la dimensione della finestra di giorni per i grafici temporali
   - La data di inizio ovodeposizione (`egg_laying_start_day`), in formato YYYY-MM-DD, che permette di suddividere automaticamente i risultati in due periodi: prima e dopo questa data. I risultati verranno salvati in due sottocartelle denominate `YYYYMMDD-YYYYMMDD` all'interno della cartella di output, corrispondenti ai due periodi.
@@ -90,7 +90,9 @@ Le immagini HTML sono interattive: per visualizzarle, apri i file corrispondenti
 - All'interno di questo file puoi specificare:
   - La cartella dove si trovano i file CSV con i dati RFID (`raw_input_folder`)
   - La cartella dove vuoi che vengano salvati i risultati e i grafici (`cleaned_ouput_folder`)
-  - La soglia per il filtro degli artefatti (`artefact_threshold_seconds`)
+  - **Le due soglie per il filtro degli artefatti:**
+    - `pre_egg_laying_threshold_seconds`: soglia (in secondi) per il periodo prima di `egg_laying_start_day`
+    - `post_egg_laying_threshold_seconds`: soglia (in secondi) per il periodo dopo `egg_laying_start_day`
   - Il formato della data/ora (`datetime_format`)
   - La durata degli slot temporali per i plot (`time_slot_minutes`)
   - Il numero di giorni per ogni plot temporale (`plot_day_window`)
