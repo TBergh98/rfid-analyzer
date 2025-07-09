@@ -20,6 +20,18 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
   - Definire il formato della data/ora dei file CSV
   - Scegliere la durata degli slot temporali per i plot e la dimensione della finestra di giorni per i grafici temporali
 
+## Esempi di output
+
+Nella cartella `samples/images` trovi alcuni esempi di output generati dal programma:
+
+- ![Bar plot delle preferenze dei nidi](../samples/images/barplot_nidi.png)
+- ![Grafico temporale dei flussi IN/OUT](../samples/images/timeseries_nido1.png)
+- ![Cluster map statica](../samples/images/clustermap.png)
+- **Cluster map interattiva (HTML):** [Visualizza esempio](../samples/images/clustermap_interattiva.html)
+- **Grafico temporale interattivo (HTML):** [Visualizza esempio](../samples/images/timeseries_interattiva.html)
+
+Le immagini HTML sono interattive: per visualizzarle, apri i file corrispondenti con un browser web.
+
 ## Requisiti
 
 - **Python 3.8 o superiore**  
@@ -120,4 +132,4 @@ Hai due possibilità:
 Assicurati di averlo installato e di aver selezionato "Aggiungi Python al PATH" durante l’installazione.
 
 **Non ho Git! Come lo installo?**  
-Vai su [git-scm.com](https://git-scm.com/), scarica la versione per Windows e segui le istruzioni. Dopo l’installazione puoi usare il comando `git`
+Vai su [git-scm.com](https://git-scm.com/), scarica la versione per Windows e segui le istruzioni. Dopo l’installazione puoi usare il comando `git` dal terminale.
