@@ -23,10 +23,9 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
 ## Esempi di output
 
 Nella cartella `samples/images` trovi alcuni esempi di output generati dal programma:
-
-- ![Bar plot delle preferenze dei nidi](samples\images\nest_preferences.png)
-- ![Grafico temporale dei flussi IN/OUT interattivo](samples\images\time_slot_flows_2023-10-25_to_2023-10-27.html)
-- ![Cluster map interattiva](samples\images\clustering_heatmap.html)
+- ![Bar plot delle preferenze dei nidi](samples/images/nest_preferences.png)
+- ![Grafico temporale dei flussi IN/OUT interattivo](samples/images/time_slot_flows_2023-10-25_to_2023-10-27.html)
+- ![Cluster map interattiva](samples/images/clustering_heatmap.html)
 
 Le immagini HTML sono interattive: per visualizzarle, apri i file corrispondenti con un browser web.
 
