@@ -22,7 +22,9 @@ if __name__ == "__main__":
     success = clean_chicken_csv_files(
         raw_input_folder=config["raw_input_folder"],
         cleaned_output_folder=config["cleaned_ouput_folder"],
-        artefact_threshold_seconds=config["artefact_threshold_seconds"]
+        pre_egg_laying_threshold_seconds=config["pre_egg_laying_threshold_seconds"],
+        post_egg_laying_threshold_seconds=config["post_egg_laying_threshold_seconds"],
+        egg_laying_start_day=config["egg_laying_start_day"]
     )
     
     if not success:
@@ -35,7 +37,8 @@ if __name__ == "__main__":
     plot_success = create_plots_for_dataset(
         cleaned_output_folder=config["cleaned_ouput_folder"],
         time_slot_minutes=config.get("time_slot_minutes", 30),
-        plot_day_window=config.get("plot_day_window", 1)  # Passa il nuovo parametro
+        plot_day_window=config.get("plot_day_window", 1),
+        egg_laying_start_day=config.get("egg_laying_start_day")
     )
     
     if not plot_success:

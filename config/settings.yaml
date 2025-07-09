@@ -6,8 +6,12 @@ raw_input_folder: C:\Users\bergamascot\Documents\Progetti\RFID-GALLINE-ANGELA\Da
 # Cartella dove verranno salvati i dati puliti e i risultati delle analisi
 cleaned_ouput_folder: C:\Users\bergamascot\Documents\Progetti\RFID-GALLINE-ANGELA\output_prova
 
-# Soglia (in secondi) per filtrare artefatti: eventi più brevi di questo valore vengono ignorati
-artefact_threshold_seconds: 10
+# Giorno di inizio ovodeposizione (egg laying start day)
+egg_laying_start_day: "2023-11-13"
+
+# Soglia (in secondi) per filtrare artefatti prima e dopo egg_laying_start_day
+pre_egg_laying_threshold_seconds: 20
+post_egg_laying_threshold_seconds: 120
 
 # Formato della data e ora nei file CSV (non modificare se i dati hanno questo formato)
 datetime_format: "%d/%m/%Y %H:%M:%S"
@@ -19,3 +23,4 @@ time_slot_minutes: 5
 # Numero di giorni inclusi in ogni plot temporale dei flussi IN/OUT
 # Esempio: 1 = un plot per ogni giorno; 2 = un plot ogni due giorni, ecc.
 plot_day_window: 3
+

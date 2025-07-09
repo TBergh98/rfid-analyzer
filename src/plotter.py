@@ -12,20 +12,17 @@ from sklearn.cluster import KMeans
 from datetime import datetime, timedelta
 
 def select_subfolder(cleaned_output_folder):
-    """Permette all'utente di selezionare una sottocartella threshold_<seconds>s."""
-    # Filtra solo le cartelle che iniziano con "threshold_"
-    subfolders = [f for f in os.listdir(cleaned_output_folder) 
-                  if os.path.isdir(os.path.join(cleaned_output_folder, f)) 
-                  and f.startswith('threshold_')]
-    
+    """Permette all'utente di selezionare una sottocartella threshold_<pre>s_<post>s."""
+    # Filtra solo le cartelle che iniziano con "threshold_" e contengono due soglie
+    subfolders = [f for f in os.listdir(cleaned_output_folder)
+                  if os.path.isdir(os.path.join(cleaned_output_folder, f))
+                  and f.startswith('threshold_') and 's_' in f and f.endswith('s')]
     if not subfolders:
-        print("Nessuna sottocartella 'threshold_<seconds>s' trovata!")
+        print("Nessuna sottocartella 'threshold_<pre>s_<post>s' trovata!")
         return None
-    
     print("Sottocartelle disponibili:")
     for i, folder in enumerate(subfolders, 1):
         print(f"{i}. {folder}")
-    
     while True:
         try:
             choice = int(input("Seleziona il numero della sottocartella: ")) - 1
@@ -297,7 +294,7 @@ def create_time_slot_flow_plot(df, output_folder, time_slot_minutes=30, plot_day
         current_window_start = current_window_end
         plot_idx += 1
 
-def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, time_slot_minutes=30, plot_day_window=1):
+def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, time_slot_minutes=30, plot_day_window=1, egg_laying_start_day=None):
     """
     Funzione principale per creare i plots. 
     Può essere chiamata da un main esterno.
@@ -307,59 +304,73 @@ def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, tim
         selected_subfolder (str, optional): Nome della sottocartella specifica. 
                                           Se None, prompta l'utente per la selezione.
         time_slot_minutes (int): Durata degli slot temporali in minuti
+        plot_day_window (int): Finestra temporale in giorni
+        egg_laying_start_day (str): Data di inizio ovodeposizione (YYYY-MM-DD)
     
     Returns:
         bool: True se i plots sono stati creati con successo, False altrimenti
     """
+    import shutil
     if not os.path.exists(cleaned_output_folder):
         print(f"Il percorso specificato non esiste: {cleaned_output_folder}")
         return False
     
     # Seleziona la sottocartella
     if selected_subfolder:
-        # Usa la sottocartella specificata
         folder_path = os.path.join(cleaned_output_folder, selected_subfolder)
         if not os.path.exists(folder_path):
             print(f"Sottocartella specificata non trovata: {folder_path}")
             return False
         selected_folder = folder_path
     else:
-        # Prompta l'utente per la selezione
         selected_folder = select_subfolder(cleaned_output_folder)
         if not selected_folder:
             return False
-    
     print(f"Cartella selezionata: {selected_folder}")
     
     # Carica i dati CSV direttamente dalla cartella threshold_<seconds>s
     df = load_csv_data(selected_folder)
-    if df is None:
+    if df is None or df.empty:
+        print("Nessun dato trovato per la generazione dei plot.")
         return False
-    
     print(f"Caricati {len(df)} record dai file CSV")
     
-    # Crea/verifica la cartella plots dentro la sottocartella threshold_<seconds>s
-    plots_folder = os.path.join(selected_folder, 'plots')
-    os.makedirs(plots_folder, exist_ok=True)
-    print(f"Cartella plots verificata/creata in: {plots_folder}")
-    
-    try:
-        # Crea i grafici
-        print("Creazione del bar plot delle preferenze dei nidi...")
-        create_nest_preference_plot(df, plots_folder)
-        
-        print("Creazione della cluster map interattiva...")
-        create_clustering_heatmap(df, plots_folder)
-        
-        print(f"Creazione del plot temporale dei flussi (slot di {time_slot_minutes} minuti, finestra di {plot_day_window} giorni)...")
-        create_time_slot_flow_plot(df, plots_folder, time_slot_minutes, plot_day_window)
-        
-        print("Tutti i grafici sono stati creati con successo!")
-        return True
-        
-    except Exception as e:
-        print(f"Errore durante la creazione dei plots: {e}")
-        return False
+    # Parsing date
+    df['datetime'] = pd.to_datetime(df['data'] + ' ' + df['ora'], format='%d/%m/%Y %H:%M:%S')
+    min_date = df['datetime'].min().date()
+    max_date = df['datetime'].max().date()
+    if not egg_laying_start_day:
+        print("egg_laying_start_day non specificato, verrà usato l'intero periodo.")
+        periods = [(min_date, max_date)]
+    else:
+        egg_start = pd.to_datetime(egg_laying_start_day).date()
+        if egg_start <= min_date or egg_start > max_date:
+            print("egg_laying_start_day fuori dal range dei dati, verrà usato l'intero periodo.")
+            periods = [(min_date, max_date)]
+        else:
+            periods = [(min_date, egg_start - pd.Timedelta(days=1)), (egg_start, max_date)]
+    success = True
+    for start, end in periods:
+        folder_name = f"{start.strftime('%Y%m%d')}-{end.strftime('%Y%m%d')}"
+        period_folder = os.path.join(selected_folder, folder_name)
+        os.makedirs(period_folder, exist_ok=True)
+        period_df = df[(df['datetime'].dt.date >= start) & (df['datetime'].dt.date <= end)].copy()
+        if period_df.empty:
+            print(f"Nessun dato per il periodo {folder_name}, salto.")
+            continue
+        plots_folder = os.path.join(period_folder, 'plots')
+        os.makedirs(plots_folder, exist_ok=True)
+        try:
+            print(f"[Periodo {folder_name}] Creazione del bar plot delle preferenze dei nidi...")
+            create_nest_preference_plot(period_df, plots_folder)
+            print(f"[Periodo {folder_name}] Creazione della cluster map interattiva...")
+            create_clustering_heatmap(period_df, plots_folder)
+            print(f"[Periodo {folder_name}] Creazione del plot temporale dei flussi (slot di {time_slot_minutes} minuti, finestra di {plot_day_window} giorni)...")
+            create_time_slot_flow_plot(period_df, plots_folder, time_slot_minutes, plot_day_window)
+        except Exception as e:
+            print(f"Errore durante la creazione dei plots per il periodo {folder_name}: {e}")
+            success = False
+    return success
 
 def main():
     """Funzione principale dello script per uso standalone."""

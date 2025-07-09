@@ -158,14 +158,16 @@ def process_csv_file(file_path, threshold_seconds):
         # Return empty dataframe instead of raising exception
         return pd.DataFrame(columns=['date', 'time', 'action', 'chicken_id', 'nest_id'])
 
-def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, artefact_threshold_seconds):
+def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, pre_egg_laying_threshold_seconds, post_egg_laying_threshold_seconds, egg_laying_start_day):
     """
-    Wrapper function to clean all chicken CSV files in a folder.
+    Wrapper function to clean all chicken CSV files in a folder, applying different thresholds before and after egg_laying_start_day.
     
     Args:
         raw_input_folder (str): Input folder containing raw CSV files
         cleaned_output_folder (str): Output folder for cleaned CSV files
-        artefact_threshold_seconds (int): Threshold in seconds for merging short exits
+        pre_egg_laying_threshold_seconds (int): Threshold in seconds for merging short exits before egg laying starts
+        post_egg_laying_threshold_seconds (int): Threshold in seconds for merging short exits after egg laying starts
+        egg_laying_start_day (str): The date when egg laying starts, in 'YYYY-MM-DD' format
     
     Returns:
         bool: True if successful (at least one output file created), False if critical failure
@@ -177,22 +179,22 @@ def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, artefact_th
             return False
         
         # Create output subfolder with threshold suffix
-        output_subfolder = os.path.join(cleaned_output_folder, f"threshold_{artefact_threshold_seconds}s")
+        output_subfolder = os.path.join(cleaned_output_folder, f"threshold_{pre_egg_laying_threshold_seconds}s_{post_egg_laying_threshold_seconds}s")
         
         # Check if output subfolder already exists
         if os.path.exists(output_subfolder):
             # Check if it contains CSV files
             existing_csv_files = [f for f in os.listdir(output_subfolder) if f.endswith('.csv')]
             if existing_csv_files:
-                logger.info(f"Output subfolder 'threshold_{artefact_threshold_seconds}s' already exists with {len(existing_csv_files)} CSV files.")
+                logger.info(f"Output subfolder already exists with {len(existing_csv_files)} CSV files.")
                 logger.info("Skipping data cleaning step. You can proceed with the analysis.")
                 return True
             else:
-                logger.info(f"Output subfolder 'threshold_{artefact_threshold_seconds}s' exists but is empty. Proceeding with cleaning...")
+                logger.info(f"Output subfolder exists but is empty. Proceeding with cleaning...")
         else:
             try:
                 os.makedirs(output_subfolder, exist_ok=True)
-                logger.info(f"Created output subfolder: threshold_{artefact_threshold_seconds}s")
+                logger.info(f"Created output subfolder: {output_subfolder}")
             except Exception as e:
                 logger.error(f"Failed to create output folder: {e}")
                 return False
@@ -206,6 +208,7 @@ def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, artefact_th
         
         successful_files = 0
         total_files = len(csv_files)
+        egg_start = pd.to_datetime(egg_laying_start_day)
         
         for csv_file in csv_files:
             input_path = os.path.join(raw_input_folder, csv_file)
@@ -213,21 +216,49 @@ def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, artefact_th
             
             try:
                 logger.info(f"Processing {csv_file}...")
-                cleaned_df = process_csv_file(input_path, artefact_threshold_seconds)
-                
-                # Always try to save the file, even if empty
+                # Read file
+                df = pd.read_csv(input_path, sep=';', header=None, 
+                                names=['date', 'time', 'action', 'chicken_id', 'nest_id'],
+                                on_bad_lines='skip', engine='python')
+                # Filter out corrupted/invalid rows
+                valid_rows = []
+                for idx, row in df.iterrows():
+                    if is_valid_row(row.values):
+                        valid_rows.append(idx)
+                df = df.loc[valid_rows].reset_index(drop=True)
+                if df.empty:
+                    logger.warning(f"No valid data found in {csv_file}")
+                    df.to_csv(output_path, sep=';', header=False, index=False)
+                    continue
+                # Parse datetime
+                valid_datetime_rows = []
+                for idx, row in df.iterrows():
+                    parsed_datetime = parse_datetime(row['date'], row['time'])
+                    if parsed_datetime is not None:
+                        df.at[idx, 'datetime'] = parsed_datetime
+                        valid_datetime_rows.append(idx)
+                df = df.loc[valid_datetime_rows].reset_index(drop=True)
+                if df.empty:
+                    logger.warning(f"No rows with valid datetime found in {csv_file}")
+                    df.to_csv(output_path, sep=';', header=False, index=False)
+                    continue
+                df['action'] = df['action'].str.strip().str.upper()
+                # Split pre/post
+                pre_mask = df['datetime'] < egg_start
+                post_mask = df['datetime'] >= egg_start
+                cleaned_pre = clean_chicken_data(df[pre_mask].copy(), pre_egg_laying_threshold_seconds) if pre_mask.any() else pd.DataFrame(columns=df.columns)
+                cleaned_post = clean_chicken_data(df[post_mask].copy(), post_egg_laying_threshold_seconds) if post_mask.any() else pd.DataFrame(columns=df.columns)
+                cleaned_df = pd.concat([cleaned_pre, cleaned_post], ignore_index=True)
+                if 'datetime' in cleaned_df.columns:
+                    cleaned_df = cleaned_df.drop('datetime', axis=1)
                 cleaned_df.to_csv(output_path, sep=';', header=False, index=False)
-                
                 if not cleaned_df.empty:
                     logger.info(f"Saved cleaned data to {output_path} ({len(cleaned_df)} rows)")
                 else:
                     logger.warning(f"Saved empty file to {output_path} (no valid data)")
-                
                 successful_files += 1
-                
             except Exception as e:
                 logger.error(f"Critical error processing {csv_file}: {str(e)}")
-                # Continue processing other files instead of stopping
                 continue
         
         # Check if we managed to create at least some output files
@@ -237,7 +268,7 @@ def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, artefact_th
             logger.error("No output files were created!")
             return False
         
-        logger.info(f"Data cleaning completed. Created {created_files}/{total_files} output files in 'threshold_{artefact_threshold_seconds}s' folder")
+        logger.info(f"Data cleaning completed. Created {created_files}/{total_files} output files in '{output_subfolder}' folder")
         
         if created_files < total_files:
             logger.warning(f"Some files failed to process ({total_files - created_files} failures)")
@@ -253,7 +284,9 @@ def main():
     parser = argparse.ArgumentParser(description='Clean chicken nesting data')
     parser.add_argument('raw_input_folder', help='Input folder containing raw CSV files')
     parser.add_argument('cleaned_output_folder', help='Output folder for cleaned CSV files')
-    parser.add_argument('artefact_threshold_seconds', type=int, help='Threshold in seconds for merging short exits')
+    parser.add_argument('pre_egg_laying_threshold_seconds', type=int, help='Threshold in seconds for merging short exits before egg laying starts')
+    parser.add_argument('post_egg_laying_threshold_seconds', type=int, help='Threshold in seconds for merging short exits after egg laying starts')
+    parser.add_argument('egg_laying_start_day', help='The date when egg laying starts, in "YYYY-MM-DD" format')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     
     args = parser.parse_args()
@@ -261,7 +294,7 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    success = clean_chicken_csv_files(args.raw_input_folder, args.cleaned_output_folder, args.artefact_threshold_seconds)
+    success = clean_chicken_csv_files(args.raw_input_folder, args.cleaned_output_folder, args.pre_egg_laying_threshold_seconds, args.post_egg_laying_threshold_seconds, args.egg_laying_start_day)
     exit(0 if success else 1)
 
 if __name__ == "__main__":

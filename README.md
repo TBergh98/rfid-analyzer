@@ -19,6 +19,7 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
   - Impostare la soglia (in secondi) per il filtro degli artefatti (eventi troppo brevi vengono ignorati)
   - Definire il formato della data/ora dei file CSV
   - Scegliere la durata degli slot temporali per i plot e la dimensione della finestra di giorni per i grafici temporali
+  - La data di inizio ovodeposizione (`egg_laying_start_day`), in formato YYYY-MM-DD, che permette di suddividere automaticamente i risultati in due periodi: prima e dopo questa data. I risultati verranno salvati in due sottocartelle denominate `YYYYMMDD-YYYYMMDD` all'interno della cartella di output, corrispondenti ai due periodi.
 
 ## Esempi di output
 
@@ -93,6 +94,7 @@ Le immagini HTML sono interattive: per visualizzarle, apri i file corrispondenti
   - Il formato della data/ora (`datetime_format`)
   - La durata degli slot temporali per i plot (`time_slot_minutes`)
   - Il numero di giorni per ogni plot temporale (`plot_day_window`)
+  - La data di inizio ovodeposizione (`egg_laying_start_day`), in formato YYYY-MM-DD, che permette di suddividere automaticamente i risultati in due periodi: prima e dopo questa data. I risultati verranno salvati in due sottocartelle denominate `YYYYMMDD-YYYYMMDD` all'interno della cartella di output, corrispondenti ai due periodi.
 
   Questi parametri influenzano direttamente la pulizia dei dati e la generazione dei grafici.
 
