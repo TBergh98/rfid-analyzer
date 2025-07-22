@@ -12,6 +12,8 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
   - Un bar plot delle preferenze dei nidi (numero di ingressi per nido)
   - Una cluster map interattiva che mostra la frequenza di utilizzo dei nidi da parte delle diverse galline
   - Grafici temporali dei flussi IN/OUT per ogni nido, suddivisi in slot temporali e finestre di giorni
+  - Un network plot interattivo delle copresenze tra galline nei nidi, con soglie configurabili per periodo e gruppo di nidi
+  - Una heatmap oraria aggregata che mostra il numero di accessi ai nidi per ogni ora e giorno, utile per individuare le fasce orarie di maggiore attività
 
 - **Configurazione tramite YAML:**  
   Il file `config/settings.yaml` permette di:
@@ -20,13 +22,18 @@ Questo software serve ad analizzare i dati raccolti tramite RFID sulle galline. 
   - Definire il formato della data/ora dei file CSV
   - Scegliere la durata degli slot temporali per i plot e la dimensione della finestra di giorni per i grafici temporali
   - La data di inizio ovodeposizione (`egg_laying_start_day`), in formato YYYY-MM-DD, che permette di suddividere automaticamente i risultati in due periodi: prima e dopo questa data. I risultati verranno salvati in due sottocartelle denominate `YYYYMMDD-YYYYMMDD` all'interno della cartella di output, corrispondenti ai due periodi.
+  - Impostare soglie minime di copresenza per visualizzare gli archi nel network plot, distinte per periodo e gruppo di nidi
+  - Abilitare/disabilitare la generazione della heatmap oraria aggregata tramite il parametro `plot_hourly_access_heatmap`
 
 ## Esempi di output
 
 Nella cartella `samples/images` trovi alcuni esempi di output generati dal programma:
 - ![Bar plot delle preferenze dei nidi](samples/images/nest_preferences.png)
 - ![Grafico temporale dei flussi IN/OUT interattivo](samples/images/time_slot_flows_2023-10-25_to_2023-10-27.html)
-- ![Cluster map interattiva](samples/images/clustering_heatmap.html)
+- ![Cluster map interattiva nidi 1.1-1.4](samples/images/clustering_heatmap_nidi_1.1-1.4.html)
+- ![Cluster map interattiva nidi 2.1-2.4](samples/images/clustering_heatmap_nidi_2.1-2.4.html)
+- ![Network plot copresenza interattivo](samples/images/copresence_network_interactive_nidi_1.1-1.4.html)
+- ![Heatmap oraria aggregata accessi ai nidi](samples/images/hourly_access_heatmap.png)
 
 Le immagini HTML sono interattive: per visualizzarle, apri i file corrispondenti con un browser web.
 
