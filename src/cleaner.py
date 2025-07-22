@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -270,32 +271,55 @@ def clean_chicken_csv_files(raw_input_folder, cleaned_output_folder, pre_egg_lay
         
         logger.info(f"Data cleaning completed. Created {created_files}/{total_files} output files in '{output_subfolder}' folder")
         
-        if created_files < total_files:
-            logger.warning(f"Some files failed to process ({total_files - created_files} failures)")
-        
-        # Return True if at least one file was processed successfully
-        return True
-        
+        for csv_file in tqdm(csv_files, desc="Pulizia CSV", unit="file"):
+            input_path = os.path.join(raw_input_folder, csv_file)
+            output_path = os.path.join(output_subfolder, csv_file)
+            try:
+                logger.info(f"Processing {csv_file}...")
+                # Read file
+                df = pd.read_csv(input_path, sep=';', header=None, 
+                                names=['date', 'time', 'action', 'chicken_id', 'nest_id'],
+                                on_bad_lines='skip', engine='python')
+                # Filter out corrupted/invalid rows
+                valid_rows = []
+                for idx, row in df.iterrows():
+                    if is_valid_row(row.values):
+                        valid_rows.append(idx)
+                df = df.loc[valid_rows].reset_index(drop=True)
+                if df.empty:
+                    logger.warning(f"No valid data found in {csv_file}")
+                    df.to_csv(output_path, sep=';', header=False, index=False)
+                    continue
+                # Parse datetime
+                valid_datetime_rows = []
+                for idx, row in df.iterrows():
+                    parsed_datetime = parse_datetime(row['date'], row['time'])
+                    if parsed_datetime is not None:
+                        df.at[idx, 'datetime'] = parsed_datetime
+                        valid_datetime_rows.append(idx)
+                df = df.loc[valid_datetime_rows].reset_index(drop=True)
+                if df.empty:
+                    logger.warning(f"No rows with valid datetime found in {csv_file}")
+                    df.to_csv(output_path, sep=';', header=False, index=False)
+                    continue
+                df['action'] = df['action'].str.strip().str.upper()
+                # Split pre/post
+                pre_mask = df['datetime'] < egg_start
+                post_mask = df['datetime'] >= egg_start
+                cleaned_pre = clean_chicken_data(df[pre_mask].copy(), pre_egg_laying_threshold_seconds) if pre_mask.any() else pd.DataFrame(columns=df.columns)
+                cleaned_post = clean_chicken_data(df[post_mask].copy(), post_egg_laying_threshold_seconds) if post_mask.any() else pd.DataFrame(columns=df.columns)
+                cleaned_df = pd.concat([cleaned_pre, cleaned_post], ignore_index=True)
+                if 'datetime' in cleaned_df.columns:
+                    cleaned_df = cleaned_df.drop('datetime', axis=1)
+                cleaned_df.to_csv(output_path, sep=';', header=False, index=False)
+                if not cleaned_df.empty:
+                    logger.info(f"Saved cleaned data to {output_path} ({len(cleaned_df)} rows)")
+                else:
+                    logger.warning(f"Saved empty file to {output_path} (no valid data)")
+                successful_files += 1
+            except Exception as e:
+                logger.error(f"Critical error processing {csv_file}: {str(e)}")
+                continue
     except Exception as e:
-        logger.error(f"Critical error in data cleaning process: {str(e)}")
+        logger.error(f"Error during cleaning: {e}")
         return False
-
-def main():
-    parser = argparse.ArgumentParser(description='Clean chicken nesting data')
-    parser.add_argument('raw_input_folder', help='Input folder containing raw CSV files')
-    parser.add_argument('cleaned_output_folder', help='Output folder for cleaned CSV files')
-    parser.add_argument('pre_egg_laying_threshold_seconds', type=int, help='Threshold in seconds for merging short exits before egg laying starts')
-    parser.add_argument('post_egg_laying_threshold_seconds', type=int, help='Threshold in seconds for merging short exits after egg laying starts')
-    parser.add_argument('egg_laying_start_day', help='The date when egg laying starts, in "YYYY-MM-DD" format')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
-    
-    args = parser.parse_args()
-    
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    success = clean_chicken_csv_files(args.raw_input_folder, args.cleaned_output_folder, args.pre_egg_laying_threshold_seconds, args.post_egg_laying_threshold_seconds, args.egg_laying_start_day)
-    exit(0 if success else 1)
-
-if __name__ == "__main__":
-    main()

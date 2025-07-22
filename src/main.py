@@ -44,6 +44,7 @@ if __name__ == "__main__":
         plot_cluster_heatmap=config.get("plot_cluster_heatmap", True),
         plot_timeflows=config.get("plot_timeflows", True),
         plot_network_copresence=config.get("plot_network_copresence", True),
+        plot_hourly_access_heatmap=config.get("plot_hourly_access_heatmap", True),  # <-- aggiungi questa riga
         copresence_thresholds=copresence_thresholds
     )
     

@@ -1,7 +1,9 @@
+from tqdm import tqdm
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -496,17 +498,40 @@ def create_time_slot_flow_plot(df, output_folder, time_slot_minutes=30, plot_day
         current_window_start = current_window_end
         plot_idx += 1
 
+def create_hourly_access_heatmap(df, output_folder):
+    """
+    Crea una heatmap oraria per giorno: numero di accessi ai nidi (tutte le galline) per ogni ora e giorno.
+    Asse X: ora (0-23), Asse Y: data, Colore: numero di accessi
+    """
+    entries = df[df['comportamento'] == 'IN'].copy()
+    entries['datetime'] = pd.to_datetime(entries['data'] + ' ' + entries['ora'], format='%d/%m/%Y %H:%M:%S')
+    entries['hour'] = entries['datetime'].dt.hour
+    entries['date'] = entries['datetime'].dt.date
+    # Pivot: righe=data, colonne=ora, valori=conteggio
+    heatmap_data = entries.groupby(['date', 'hour']).size().unstack(fill_value=0)
+    plt.figure(figsize=(16, max(6, heatmap_data.shape[0]//2)))
+    sns.heatmap(heatmap_data, cmap='YlOrRd', linewidths=0.5, linecolor='gray', annot=False, cbar_kws={'label': 'Numero di accessi'})
+    plt.title('Heatmap oraria accessi ai nidi (tutte le galline)', fontsize=16)
+    plt.xlabel('Ora del giorno')
+    plt.ylabel('Data')
+    plt.tight_layout()
+    plot_path = os.path.join(output_folder, 'hourly_access_heatmap.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Heatmap oraria salvata in: {plot_path}")
+
 def create_plots_for_dataset(
-cleaned_output_folder,
-selected_subfolder=None,
-time_slot_minutes=30,
-plot_day_window=1,
-egg_laying_start_day=None,
-plot_nest_preference=True,
-plot_cluster_heatmap=True,
-plot_timeflows=True,
-plot_network_copresence=True,
-copresence_thresholds=None
+    cleaned_output_folder,
+    selected_subfolder=None,
+    time_slot_minutes=30,
+    plot_day_window=1,
+    egg_laying_start_day=None,
+    plot_nest_preference=True,
+    plot_cluster_heatmap=True,
+    plot_timeflows=True,
+    plot_hourly_access_heatmap=True,
+    plot_network_copresence=True,
+    copresence_thresholds=None
 ):
     """
     Funzione principale per creare i plots. 
@@ -519,6 +544,7 @@ copresence_thresholds=None
         time_slot_minutes (int): Durata degli slot temporali in minuti
         plot_day_window (int): Finestra temporale in giorni
         egg_laying_start_day (str): Data di inizio ovodeposizione (YYYY-MM-DD)
+        plot_hourly_access_heatmap (bool): Se True, crea la heatmap oraria degli accessi ai nidi
     
     Returns:
         bool: True se i plots sono stati creati con successo, False altrimenti
@@ -565,7 +591,7 @@ copresence_thresholds=None
     # Usa direttamente i parametri booleani passati
 
     success = True
-    for idx, (start, end) in enumerate(periods):
+    for idx, (start, end) in enumerate(tqdm(periods, desc="Creazione plot per periodo", unit="periodo")):
         folder_name = f"{start.strftime('%Y%m%d')}-{end.strftime('%Y%m%d')}"
         period_folder = os.path.join(selected_folder, folder_name)
         os.makedirs(period_folder, exist_ok=True)
@@ -585,6 +611,9 @@ copresence_thresholds=None
             if plot_timeflows:
                 print(f"[Periodo {folder_name}] Creazione del plot temporale dei flussi (slot di {time_slot_minutes} minuti, finestra di {plot_day_window} giorni)...")
                 create_time_slot_flow_plot(period_df, plots_folder, time_slot_minutes, plot_day_window)
+            if plot_hourly_access_heatmap:
+                print(f"[Periodo {folder_name}] Creazione heatmap oraria aggregata accessi ai nidi...")
+                create_hourly_access_heatmap(period_df, plots_folder)
             if plot_network_copresence:
                 # Determina il periodo (pre o post egg laying)
                 if len(periods) == 1:
@@ -592,23 +621,18 @@ copresence_thresholds=None
                 else:
                     period_key = 'pre_egg_laying' if idx == 0 else 'post_egg_laying'
                 thresholds = copresence_thresholds.get(period_key, {}) if copresence_thresholds else {}
-                print(f"[Periodo {folder_name}] Creazione network plot copresenza per nidi 1.1-1.4...")
-                group1_nests = [f"1.{i}" for i in range(1, 5)]
-                group1_df = period_df[period_df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)).isin([str(i) for i in range(11, 15)])].copy()
-                group1_threshold = thresholds.get('group1', 1)
-                if not group1_df.empty:
-                    create_copresence_network_plot(group1_df, plots_folder, copresence_threshold=group1_threshold)
-                else:
-                    print("Nessun dato per nidi 1.1-1.4 in questo periodo.")
-
-                print(f"[Periodo {folder_name}] Creazione network plot copresenza per nidi 2.1-2.4...")
-                group2_nests = [f"2.{i}" for i in range(1, 5)]
-                group2_df = period_df[period_df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)).isin([str(i) for i in range(21, 25)])].copy()
-                group2_threshold = thresholds.get('group2', 1)
-                if not group2_df.empty:
-                    create_copresence_network_plot(group2_df, plots_folder, copresence_threshold=group2_threshold)
-                else:
-                    print("Nessun dato per nidi 2.1-2.4 in questo periodo.")
+                # Progress bar per i due gruppi di nidi
+                for group_label, group_nests, group_range, group_key in tqdm([
+                    ("nidi 1.1-1.4", [f"1.{i}" for i in range(1, 5)], [str(i) for i in range(11, 15)], 'group1'),
+                    ("nidi 2.1-2.4", [f"2.{i}" for i in range(1, 5)], [str(i) for i in range(21, 25)], 'group2')
+                ], desc=f"Copresence plot {folder_name}", unit="gruppo"):
+                    print(f"[Periodo {folder_name}] Creazione network plot copresenza per {group_label}...")
+                    group_df = period_df[period_df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)).isin(group_range)].copy()
+                    group_threshold = thresholds.get(group_key, 1)
+                    if not group_df.empty:
+                        create_copresence_network_plot(group_df, plots_folder, copresence_threshold=group_threshold)
+                    else:
+                        print(f"Nessun dato per {group_label} in questo periodo.")
         except Exception as e:
             print(f"Errore durante la creazione dei plots per il periodo {folder_name}: {e}")
             success = False

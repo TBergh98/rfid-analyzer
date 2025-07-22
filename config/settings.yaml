@@ -29,6 +29,7 @@ plot_nest_preference: true         # Bar plot preferenze nidi
 plot_cluster_heatmap: true         # Cluster heatmap interattiva
 plot_timeflows: false              # Plot temporali dei flussi IN/OUT
 plot_network_copresence: true      # Network plot copresenza galline
+plot_hourly_access_heatmap: true  # Heatmap oraria per giorno
 
 # Soglie minime per visualizzare un arco nel network plot di copresenza
 copresence_thresholds:
