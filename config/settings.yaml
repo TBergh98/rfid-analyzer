@@ -24,3 +24,18 @@ time_slot_minutes: 5
 # Esempio: 1 = un plot per ogni giorno; 2 = un plot ogni due giorni, ecc.
 plot_day_window: 3
 
+# === PARAMETRI PER ABILITARE/DISABILITARE I PLOT ===
+plot_nest_preference: true         # Bar plot preferenze nidi
+plot_cluster_heatmap: true         # Cluster heatmap interattiva
+plot_timeflows: false              # Plot temporali dei flussi IN/OUT
+plot_network_copresence: true      # Network plot copresenza galline
+
+# Soglie minime per visualizzare un arco nel network plot di copresenza
+copresence_thresholds:
+  pre_egg_laying:
+    group1: 10   # Soglia per nidi 1.1-1.4 nel periodo pre egg laying
+    group2: 10   # Soglia per nidi 2.1-2.4 nel periodo pre egg laying
+  post_egg_laying:
+    group1: 30   # Soglia per nidi 1.1-1.4 nel periodo post egg laying
+    group2: 30   # Soglia per nidi 2.1-2.4 nel periodo post egg laying
+

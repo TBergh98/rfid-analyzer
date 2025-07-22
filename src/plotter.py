@@ -10,6 +10,218 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from datetime import datetime, timedelta
+# Nuove importazioni per il grafo
+import networkx as nx
+
+def create_copresence_network_plot(df, output_folder, copresence_threshold=1):
+    """
+    Crea la matrice di copresenza GxG e il network plot delle galline.
+    Args:
+        df: DataFrame con colonne ['data', 'ora', 'comportamento', 'id_gallina', 'id_nido']
+        output_folder: cartella di output
+        copresence_threshold: soglia minima per visualizzare un arco
+    """
+    # Filtra solo eventi IN e OUT
+    df = df[df['comportamento'].isin(['IN', 'OUT'])].copy()
+    df['datetime'] = pd.to_datetime(df['data'] + ' ' + df['ora'], format='%d/%m/%Y %H:%M:%S')
+    df = df.sort_values(['id_nido', 'id_gallina', 'datetime'])
+
+    # Costruisci intervalli di presenza per ogni gallina in ogni nido
+    intervals = []
+    for nido, group in df.groupby('id_nido'):
+        for gallina, ggroup in group.groupby('id_gallina'):
+            # Trova intervalli IN/OUT
+            in_times = ggroup[ggroup['comportamento'] == 'IN']['datetime'].tolist()
+            out_times = ggroup[ggroup['comportamento'] == 'OUT']['datetime'].tolist()
+            # Associa ogni IN al primo OUT successivo
+            idx_in = 0
+            idx_out = 0
+            while idx_in < len(in_times):
+                in_time = in_times[idx_in]
+                # Trova il primo OUT dopo IN
+                out_time = None
+                while idx_out < len(out_times) and out_times[idx_out] <= in_time:
+                    idx_out += 1
+                if idx_out < len(out_times):
+                    out_time = out_times[idx_out]
+                    idx_out += 1
+                else:
+                    out_time = in_time + pd.Timedelta(minutes=10)  # fallback: 10 min
+                intervals.append({'id_nido': nido, 'id_gallina': gallina, 'in_time': in_time, 'out_time': out_time})
+                idx_in += 1
+
+    # Costruisci matrice di copresenza
+    galline = sorted(df['id_gallina'].unique())
+    gallina_idx = {g: i for i, g in enumerate(galline)}
+    copresence_matrix = np.zeros((len(galline), len(galline)), dtype=int)
+
+    # Per ogni nido, trova copresenze tra galline
+    from itertools import combinations
+    intervals_by_nido = {}
+    for interval in intervals:
+        intervals_by_nido.setdefault(interval['id_nido'], []).append(interval)
+    for nido, nido_intervals in intervals_by_nido.items():
+        # Per ogni coppia di galline
+        for i1, i2 in combinations(nido_intervals, 2):
+            g1, g2 = i1['id_gallina'], i2['id_gallina']
+            # Sovrapposizione intervalli
+            latest_start = max(i1['in_time'], i2['in_time'])
+            earliest_end = min(i1['out_time'], i2['out_time'])
+            overlap = (earliest_end - latest_start).total_seconds()
+            if overlap > 0:
+                copresence_matrix[gallina_idx[g1], gallina_idx[g2]] += 1
+                copresence_matrix[gallina_idx[g2], gallina_idx[g1]] += 1
+
+    # Salva la matrice copresenza
+    copresence_df = pd.DataFrame(copresence_matrix, index=galline, columns=galline)
+    copresence_path = os.path.join(output_folder, 'copresence_matrix.csv')
+    copresence_df.to_csv(copresence_path)
+    print(f"Matrice di copresenza salvata in: {copresence_path}")
+
+    # Costruisci grafo e posizioni nodi con NetworkX (solo per layout)
+    G = nx.Graph()
+    for i, g1 in enumerate(galline):
+        G.add_node(g1)
+    for i in range(len(galline)):
+        for j in range(i+1, len(galline)):
+            weight = copresence_matrix[i, j]
+            if weight >= copresence_threshold:
+                G.add_edge(galline[i], galline[j], weight=weight)
+
+    pos = nx.spring_layout(G, seed=42, k=1.5)
+    # Prepara dati per Plotly
+    edge_x = []
+    edge_y = []
+    edge_weights = []
+    edge_text = []
+    for u, v, d in G.edges(data=True):
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+        edge_weights.append(d['weight'])
+        edge_text.append(f'{u} - {v}: {d["weight"]}')
+
+    # Colori archi in base al peso (YlGnBu: più blu = più copresenze)
+    import matplotlib.cm as cm
+    import matplotlib.colors as mcolors
+    norm = mcolors.Normalize(vmin=min(edge_weights) if edge_weights else 0, vmax=max(edge_weights) if edge_weights else 1)
+    cmap = cm.get_cmap('YlGnBu')
+    edge_colors = [f'rgba{cmap(norm(w))[:3] + (0.7,)}' for w in edge_weights]
+
+    # Plot archi
+    edge_trace = go.Scatter(
+        x=edge_x,
+        y=edge_y,
+        line=dict(width=2, color='#888'),
+        hoverinfo='none',
+        mode='lines')
+
+    # Plot nodi
+    node_x = []
+    node_y = []
+    node_text = []
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(str(node))
+
+    # Colora i nodi in base al grado
+    node_adjacencies = [len(list(G.neighbors(node))) for node in G.nodes()]
+    node_trace = go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode='markers+text',
+        text=node_text,
+        textposition='top center',
+        hoverinfo='text',
+        marker=dict(
+            showscale=True,
+            colorscale='YlGnBu',
+            color=node_adjacencies,
+            size=12,
+            colorbar=dict(
+                thickness=15,
+                title='Grado nodo',
+                xanchor='left',
+            )
+        )
+    )
+
+    # Crea la figura
+    fig = go.Figure(data=[edge_trace, node_trace],
+        layout=go.Layout(
+            title=dict(
+                text=f'Grafo Interattivo delle Galline (copresenza ≥ {copresence_threshold})',
+                font=dict(size=16)
+            ),
+            showlegend=False,
+            hovermode='closest',
+            margin=dict(b=20,l=5,r=5,t=40),
+            annotations=[dict(
+                text="<b>Galline</b>: nodo = gallina, arco = copresenza, tooltip = peso",
+                showarrow=False,
+                xref="paper", yref="paper",
+                x=0.005, y=-0.002 )],
+            xaxis=dict(showgrid=False, zeroline=False),
+            yaxis=dict(showgrid=False, zeroline=False)
+        )
+    )
+
+    # Tooltip sugli archi (aggiunti come hovertext su edge_trace)
+    # Plotly non supporta hovertext su lines multiple, workaround: aggiungi archi come scatter separati
+    edge_traces = []
+    for (u, v, d), color in zip(G.edges(data=True), edge_colors):
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_traces.append(go.Scatter(
+            x=[x0, x1],
+            y=[y0, y1],
+            line=dict(width=2, color=color),
+            hoverinfo='text',
+            text=[f'{u} - {v}: {d["weight"]}', f'{u} - {v}: {d["weight"]}'],
+            mode='lines+markers',
+            marker=dict(size=18, color=color, opacity=0.5, line=dict(width=0))
+        ))
+    # Aggiungi una colorbar custom per gli archi (copresenze)
+    if edge_weights:
+        colorbar_trace = go.Scatter(
+            x=[None], y=[None],
+            mode='markers',
+            marker=dict(
+                colorscale='YlGnBu',
+                cmin=0,
+                cmax=max(edge_weights),
+                color=[max(edge_weights)],
+                colorbar=dict(
+                    title='Copresenze arco',
+                    thickness=15,
+                    x=1.05,
+                    y=0.5,
+                    len=0.7,
+                    tickvals=[0, max(edge_weights)],
+                    ticktext=[str(0), str(max(edge_weights))]
+                ),
+                showscale=True
+            ),
+            showlegend=False
+        )
+        fig = go.Figure(data=edge_traces + [node_trace, colorbar_trace], layout=fig.layout)
+    else:
+        fig = go.Figure(data=edge_traces + [node_trace], layout=fig.layout)
+
+    # Determina il gruppo di nidi dal DataFrame
+    nest_ids = set(df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)))
+    if nest_ids.issubset(set(str(i) for i in range(11, 15))):
+        group_label = 'nidi_1.1-1.4'
+    elif nest_ids.issubset(set(str(i) for i in range(21, 25))):
+        group_label = 'nidi_2.1-2.4'
+    else:
+        group_label = 'nidi_misti'
+    plot_path = os.path.join(output_folder, f'copresence_network_interactive_{group_label}.html')
+    plot(fig, filename=plot_path, auto_open=False)
+    print(f"Network plot interattivo salvato in: {plot_path}")
 
 def select_subfolder(cleaned_output_folder):
     """Permette all'utente di selezionare una sottocartella threshold_<pre>s_<post>s."""
@@ -109,60 +321,50 @@ def create_nest_preference_plot(df, output_folder):
     print(f"Bar plot salvato in: {plot_path}")
 
 def create_clustering_heatmap(df, output_folder):
-    """Crea una cluster map interattiva con Plotly."""
+    """Crea due cluster map interattive con Plotly: una per i nidi 1.1-1.4, una per i nidi 2.1-2.4."""
     # Filtra solo gli ingressi nei nidi
     entries = df[df['comportamento'] == 'IN'].copy()
-    
-    # Formatta gli ID dei nidi
     entries['formatted_nest_id'] = entries['id_nido'].apply(format_nest_id)
-    
-    # Crea una matrice gallina x nido con il conteggio delle visite
-    visit_matrix = entries.groupby(['id_gallina', 'formatted_nest_id']).size().unstack(fill_value=0)
-    
-    if visit_matrix.empty:
-        print("Nessun dato di ingresso trovato per creare la cluster map.")
-        return
-    
-    # Normalizza i dati per il clustering
-    scaler = StandardScaler()
-    normalized_data = scaler.fit_transform(visit_matrix.values)
-    
-    # Applica il clustering
-    n_clusters = min(5, len(visit_matrix))  # Massimo 5 cluster o il numero di galline
-    if n_clusters > 1:
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        cluster_labels = kmeans.fit_predict(normalized_data)
-    else:
-        cluster_labels = [0] * len(visit_matrix)
-    
-    # Ordina le galline per cluster
-    visit_matrix_sorted = visit_matrix.copy()
-    visit_matrix_sorted['cluster'] = cluster_labels
-    visit_matrix_sorted = visit_matrix_sorted.sort_values('cluster')
-    visit_matrix_sorted = visit_matrix_sorted.drop('cluster', axis=1)
-    
-    # Crea la heatmap interattiva con Plotly
-    fig = go.Figure(data=go.Heatmap(
-        z=visit_matrix_sorted.values,
-        x=visit_matrix_sorted.columns,
-        y=[f"Gallina {idx}" for idx in visit_matrix_sorted.index],
-        colorscale='Viridis',
-        hovertemplate='Gallina: %{y}<br>Nido: %{x}<br>Visite: %{z}<extra></extra>',
-        colorbar=dict(title="Numero di Visite")
-    ))
-    
-    fig.update_layout(
-        title='Cluster Map - Frequentazione dei Nidi per Gallina',
-        xaxis_title='ID Nido',
-        yaxis_title='Galline',
-        width=800,
-        height=600,
-        font=dict(size=12)
-    )
-    
-    plot_path = os.path.join(output_folder, 'clustering_heatmap.html')
-    plot(fig, filename=plot_path, auto_open=False)
-    print(f"Cluster map interattiva salvata in: {plot_path}")
+    # Definisci i gruppi di nidi
+    group1_nests = [f"1.{i}" for i in range(1, 5)]
+    group2_nests = [f"2.{i}" for i in range(1, 5)]
+    for group_nests, group_label in [(group1_nests, "nidi_1.1-1.4"), (group2_nests, "nidi_2.1-2.4")]:
+        group_entries = entries[entries['formatted_nest_id'].isin(group_nests)].copy()
+        visit_matrix = group_entries.groupby(['id_gallina', 'formatted_nest_id']).size().unstack(fill_value=0)
+        if visit_matrix.empty:
+            print(f"Nessun dato di ingresso trovato per creare la cluster map per {group_label}.")
+            continue
+        scaler = StandardScaler()
+        normalized_data = scaler.fit_transform(visit_matrix.values)
+        n_clusters = min(5, len(visit_matrix))  # Fino a 5 cluster
+        if n_clusters > 1:
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+            cluster_labels = kmeans.fit_predict(normalized_data)
+        else:
+            cluster_labels = [0] * len(visit_matrix)
+        visit_matrix_sorted = visit_matrix.copy()
+        visit_matrix_sorted['cluster'] = cluster_labels
+        visit_matrix_sorted = visit_matrix_sorted.sort_values('cluster')
+        visit_matrix_sorted = visit_matrix_sorted.drop('cluster', axis=1)
+        fig = go.Figure(data=go.Heatmap(
+            z=visit_matrix_sorted.values,
+            x=visit_matrix_sorted.columns,
+            y=[f"Gallina {idx}" for idx in visit_matrix_sorted.index],
+            colorscale='Viridis',
+            hovertemplate='Gallina: %{y}<br>Nido: %{x}<br>Visite: %{z}<extra></extra>',
+            colorbar=dict(title="Numero di Visite")
+        ))
+        fig.update_layout(
+            title=f'Cluster Map - Frequentazione dei Nidi per Gallina ({group_label})',
+            xaxis_title='ID Nido',
+            yaxis_title='Galline',
+            width=800,
+            height=600,
+            font=dict(size=12)
+        )
+        plot_path = os.path.join(output_folder, f'clustering_heatmap_{group_label}.html')
+        plot(fig, filename=plot_path, auto_open=False)
+        print(f"Cluster map interattiva salvata in: {plot_path}")
 
 def create_time_slot_flow_plot(df, output_folder, time_slot_minutes=30, plot_day_window=1):
     """Crea uno o più plot temporali dei flussi IN/OUT per ogni nido divisi in slot temporali e finestre di giorni."""
@@ -294,7 +496,18 @@ def create_time_slot_flow_plot(df, output_folder, time_slot_minutes=30, plot_day
         current_window_start = current_window_end
         plot_idx += 1
 
-def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, time_slot_minutes=30, plot_day_window=1, egg_laying_start_day=None):
+def create_plots_for_dataset(
+cleaned_output_folder,
+selected_subfolder=None,
+time_slot_minutes=30,
+plot_day_window=1,
+egg_laying_start_day=None,
+plot_nest_preference=True,
+plot_cluster_heatmap=True,
+plot_timeflows=True,
+plot_network_copresence=True,
+copresence_thresholds=None
+):
     """
     Funzione principale per creare i plots. 
     Può essere chiamata da un main esterno.
@@ -349,8 +562,10 @@ def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, tim
             periods = [(min_date, max_date)]
         else:
             periods = [(min_date, egg_start - pd.Timedelta(days=1)), (egg_start, max_date)]
+    # Usa direttamente i parametri booleani passati
+
     success = True
-    for start, end in periods:
+    for idx, (start, end) in enumerate(periods):
         folder_name = f"{start.strftime('%Y%m%d')}-{end.strftime('%Y%m%d')}"
         period_folder = os.path.join(selected_folder, folder_name)
         os.makedirs(period_folder, exist_ok=True)
@@ -361,12 +576,39 @@ def create_plots_for_dataset(cleaned_output_folder, selected_subfolder=None, tim
         plots_folder = os.path.join(period_folder, 'plots')
         os.makedirs(plots_folder, exist_ok=True)
         try:
-            print(f"[Periodo {folder_name}] Creazione del bar plot delle preferenze dei nidi...")
-            create_nest_preference_plot(period_df, plots_folder)
-            print(f"[Periodo {folder_name}] Creazione della cluster map interattiva...")
-            create_clustering_heatmap(period_df, plots_folder)
-            print(f"[Periodo {folder_name}] Creazione del plot temporale dei flussi (slot di {time_slot_minutes} minuti, finestra di {plot_day_window} giorni)...")
-            create_time_slot_flow_plot(period_df, plots_folder, time_slot_minutes, plot_day_window)
+            if plot_nest_preference:
+                print(f"[Periodo {folder_name}] Creazione del bar plot delle preferenze dei nidi...")
+                create_nest_preference_plot(period_df, plots_folder)
+            if plot_cluster_heatmap:
+                print(f"[Periodo {folder_name}] Creazione della cluster map interattiva...")
+                create_clustering_heatmap(period_df, plots_folder)
+            if plot_timeflows:
+                print(f"[Periodo {folder_name}] Creazione del plot temporale dei flussi (slot di {time_slot_minutes} minuti, finestra di {plot_day_window} giorni)...")
+                create_time_slot_flow_plot(period_df, plots_folder, time_slot_minutes, plot_day_window)
+            if plot_network_copresence:
+                # Determina il periodo (pre o post egg laying)
+                if len(periods) == 1:
+                    period_key = 'pre_egg_laying'  # fallback se solo un periodo
+                else:
+                    period_key = 'pre_egg_laying' if idx == 0 else 'post_egg_laying'
+                thresholds = copresence_thresholds.get(period_key, {}) if copresence_thresholds else {}
+                print(f"[Periodo {folder_name}] Creazione network plot copresenza per nidi 1.1-1.4...")
+                group1_nests = [f"1.{i}" for i in range(1, 5)]
+                group1_df = period_df[period_df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)).isin([str(i) for i in range(11, 15)])].copy()
+                group1_threshold = thresholds.get('group1', 1)
+                if not group1_df.empty:
+                    create_copresence_network_plot(group1_df, plots_folder, copresence_threshold=group1_threshold)
+                else:
+                    print("Nessun dato per nidi 1.1-1.4 in questo periodo.")
+
+                print(f"[Periodo {folder_name}] Creazione network plot copresenza per nidi 2.1-2.4...")
+                group2_nests = [f"2.{i}" for i in range(1, 5)]
+                group2_df = period_df[period_df['id_nido'].apply(lambda x: str(int(float(x))) if isinstance(x, (int, float)) else str(x)).isin([str(i) for i in range(21, 25)])].copy()
+                group2_threshold = thresholds.get('group2', 1)
+                if not group2_df.empty:
+                    create_copresence_network_plot(group2_df, plots_folder, copresence_threshold=group2_threshold)
+                else:
+                    print("Nessun dato per nidi 2.1-2.4 in questo periodo.")
         except Exception as e:
             print(f"Errore durante la creazione dei plots per il periodo {folder_name}: {e}")
             success = False

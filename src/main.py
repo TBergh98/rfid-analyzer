@@ -34,11 +34,17 @@ if __name__ == "__main__":
     print("Pulizia dei dati OK!")
 
     print("Avvio creazione plots...")
+    copresence_thresholds = config.get('copresence_thresholds', {})
     plot_success = create_plots_for_dataset(
         cleaned_output_folder=config["cleaned_ouput_folder"],
         time_slot_minutes=config.get("time_slot_minutes", 30),
         plot_day_window=config.get("plot_day_window", 1),
-        egg_laying_start_day=config.get("egg_laying_start_day")
+        egg_laying_start_day=config.get("egg_laying_start_day"),
+        plot_nest_preference=config.get("plot_nest_preference", True),
+        plot_cluster_heatmap=config.get("plot_cluster_heatmap", True),
+        plot_timeflows=config.get("plot_timeflows", True),
+        plot_network_copresence=config.get("plot_network_copresence", True),
+        copresence_thresholds=copresence_thresholds
     )
     
     if not plot_success:
