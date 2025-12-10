@@ -1,0 +1,7 @@
+# Basic configuration for the OOP cleaner
+input_folder: ../raw-data/split_by_nest
+output_folder: ../cleaned
+ovodeposition_start_date: "2023-11-13"
+threshold_pre_ovodeposition: 20
+threshold_post_ovodeposition: 20
+datetime_format: "%d/%m/%Y %H:%M:%S"

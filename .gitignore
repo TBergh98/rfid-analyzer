@@ -23,3 +23,6 @@ ENV/
 
 # File PDF
 *.pdf
+
+# File del sub-folder "old"
+rfid-analyzer/deprecated/samples/
